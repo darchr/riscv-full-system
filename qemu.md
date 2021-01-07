@@ -26,7 +26,7 @@ make -j $(nproc)
 sudo make install
 ```
 
-Compile Linux kernel for RISC-V:
+Compile Linux kernel (e.g. v5.4) for RISC-V:
 
 ```sh
 git clone https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
@@ -36,7 +36,7 @@ make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- defconfig
 make ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- -j $(nproc)
 ```
 
-To build busybox for RISC-V:
+To build busybox (binary containing many UNIX utilities) for RISC-V:
 
 ```sh
 git clone https://git.busybox.net/busybox
@@ -57,9 +57,13 @@ These instructions are based on the documentation of [Debian port for RISC-V](ht
 
 Follow the same instructions as above to build qemu and Linux kernel for RISC-V.
 
+Next, install the required libraries:
+
 ```sh
 sudo apt-get install debootstrap qemu-user-static binfmt-support debian-ports-archive-keyring
 ```
+
+We also need to update the package sources to be able to access debian-ports repository. Do the following:
 
 ```sh
 vim  /etc/apt/sources.list
@@ -89,13 +93,19 @@ Or
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys [expired key]
 ```
 
-To
+Next, we need to create a riscv chroot (operation that changes the apparent root directory of the current running process) using [`debootstrap`](https://wiki.debian.org/Debootstrap) tool.
+
+Use the following command to that (this will create a chroot in `/tmp/riscv64-chroot`):
 
 ```sh
 sudo debootstrap --arch=riscv64 --foreign --variant=buildd  --keyring /usr/share/keyrings/debian-ports-archive-keyring.gpg --include=debian-ports-archive-keyring unstable /tmp/riscv64-chroot http://deb.debian.org/debian-ports
 ```
 
+Some further processing is needed to prepare this chroot to be used as the base of the virtual machine.
+
 `qemu-static` for RISC-V is needed to be able to update packages (or run RISC-V specific applications) inside the file-system of the qemu disk image (virtual machine) from the host, once we `chroot` to the RISC-V debian file-system.
+
+To install qemu-static in chroot:
 
 ```sh
 cat >/tmp/qemu-riscv64 <<EOF
@@ -112,16 +122,15 @@ EOF
 sudo update-binfmts --import /tmp/qemu-riscv64
 ```
 
-
-
 Also copy the previously built Linux image to inside the debain chroot:
 
 ```sh
-/data/aakahlow/RISCV-Full-System/riscv64-linux/linux/arch/riscv/boot/Image /tmp/riscv64-chroot/boot/
+[path to the linux source folder]/linux/arch/riscv/boot/Image /tmp/riscv64-chroot/boot/
 ```
 
 This is needed as we will see in the later part when qemu is started.
 
+Then run `chroot` on the previously created directory:
 
 ```sh
 sudo chroot /tmp/riscv64-chroot
@@ -159,6 +168,8 @@ U_BOOT_FDT_DIR="noexist"
 EOF
 ```
 
+This tutorial uses u-boot as the bootloader. To generate the menu files used by u-boot in the chroot directory, run:
+
 ```sh
 u-boot-update
 ```
@@ -168,13 +179,15 @@ To exit the chroot:
 exit
 ```
 
-Create disk image from previous chroot:
+Create disk image `rootfs.img` from previous chroot directory:
 
 ```sh
 sudo apt-get install libguestfs-tools
 sudo virt-make-fs --partition=gpt --type=ext4 --size=10G /tmp/riscv64-chroot/ rootfs.img
 sudo chown ${USER} rootfs.img
 ```
+
+Then run qemu with this disk image:
 
 ```sh
 $INSTALL_DIR/bin/qemu-system-riscv64 -nographic -machine virt -m 1.9G -kernel /usr/lib/riscv64-linux-gnu/opensbi/generic/fw_jump.elf -device loader,file=/usr/lib/u-boot/qemu-riscv64_smode/uboot.elf -object rng-random,filename=/dev/urandom,id=rng0 -device virtio-rng-device,rng=rng0 -append "console=ttyS0 rw root=/dev/vda1" -device virtio-blk-device,drive=hd0 -drive file=rootfs.img,format=raw,id=hd0 -device virtio-net-device,netdev=usernet -netdev user,id=usernet,hostfwd=tcp::22222-:22
