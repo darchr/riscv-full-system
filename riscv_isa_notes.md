@@ -69,3 +69,13 @@ References:
 
 - There are separate instructions to compute upper and lower halves of multiplication results.
 - 32 bit multiplication on 64 bit machines need special attention.
+
+## RISC-V Privilige Modes
+
+- 4 strictly ordered privilige levels (U, S, H and M mode)
+- User and supervisor modes are pretty similar to each other. Virtual memory and page tables are managed by the supervisor mode.
+- Current mode is not available in a user-visible register, but needs to be figured out from the current available functionality. 
+- A processor might not implement all modes, but will have at least M mode.
+- Theoretically it might be possible for any sort of code to run in any mode.
+- OS can implement more than one ABIs.
+- OS meets the specifications of a "Supervisor Execution Environment (SEE)". Specification: SBI (Supervisor Binary Interface).
