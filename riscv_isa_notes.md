@@ -79,3 +79,33 @@ References:
 - Theoretically it might be possible for any sort of code to run in any mode.
 - OS can implement more than one ABIs.
 - OS meets the specifications of a "Supervisor Execution Environment (SEE)". Specification: SBI (Supervisor Binary Interface).
+
+- Synchronous Exceptions (illegal inst, inst address misaligned, inst access fault, load access fault, environment call, breakpoint, store/atomic mem operations (AMO) address misaligned/access fault), Asynchronous Exceptions/Interrupts (timer, software, external interrupts)
+
+### CSR (Control and Status Registers):
+
+- Specifications allow around 4K different CSRs (12 bit address is used to point to them).
+- Each CSR belongs to one of the privilege modes.
+
+Instructions for managing privilige levels and CSRs:
+
+- ECALL : To make a system call from a lower privilege level to a higher mode 
+- EBREAK : Used by debuggers to get control; similar to ECALL 
+- URET : To return from trap handler that was running in User Mode 
+- SRET : To return from trap handler that - was running in Supervisor Mode 
+- MRET :  To return from trap handler that was running in Machine Mode 
+- WFI : Go into sleep/low power state and Wait For Interrupt 
+- CSR.. :  Instructions to read/write the Control and Status Registers (CSRs)
+
+Following are main CSR.. insts:
+
+- CSRRW : Read and write a CSR 
+- CSRRS : Read and set selected bits to 1 
+- CSRRC : Read and clear selected bits to 0 
+- CSRRWI : Read and write a CSR (from immediate value) 
+- CSRRSI : Read and set selected bits to 1 (using immediate mask) 
+- CSRRCI : Read and clear selected bits to 0 (using immediate mask)
+
+- "Each of these instructions reads a CSR by copying its previous value into one of the general purpose registers (x1, x2, ...)."
+
+- "Often, you only want to read the register; if so, you can specify the source value as register x0. (This is a special case. The CSR is remains unchanged; it is not set to zero.)"
