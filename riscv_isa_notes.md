@@ -74,7 +74,7 @@ References:
 
 - 4 strictly ordered privilige levels (U, S, H and M mode)
 - User and supervisor modes are pretty similar to each other. Virtual memory and page tables are managed by the supervisor mode.
-- Current mode is not available in a user-visible register, but needs to be figured out from the current available functionality. 
+- Current mode is not available in a user-visible register, but needs to be figured out from the current available functionality.
 - A processor might not implement all modes, but will have at least M mode.
 - Theoretically it might be possible for any sort of code to run in any mode.
 - OS can implement more than one ABIs.
@@ -89,23 +89,63 @@ References:
 
 Instructions for managing privilige levels and CSRs:
 
-- ECALL : To make a system call from a lower privilege level to a higher mode 
-- EBREAK : Used by debuggers to get control; similar to ECALL 
-- URET : To return from trap handler that was running in User Mode 
-- SRET : To return from trap handler that - was running in Supervisor Mode 
-- MRET :  To return from trap handler that was running in Machine Mode 
-- WFI : Go into sleep/low power state and Wait For Interrupt 
+- ECALL : To make a system call from a lower privilege level to a higher mode
+- EBREAK : Used by debuggers to get control; similar to ECALL
+- URET : To return from trap handler that was running in User Mode
+- SRET : To return from trap handler that - was running in Supervisor Mode
+- MRET :  To return from trap handler that was running in Machine Mode
+- WFI : Go into sleep/low power state and Wait For Interrupt
 - CSR.. :  Instructions to read/write the Control and Status Registers (CSRs)
 
 Following are main CSR.. insts:
 
-- CSRRW : Read and write a CSR 
-- CSRRS : Read and set selected bits to 1 
-- CSRRC : Read and clear selected bits to 0 
-- CSRRWI : Read and write a CSR (from immediate value) 
-- CSRRSI : Read and set selected bits to 1 (using immediate mask) 
+- CSRRW : Read and write a CSR
+- CSRRS : Read and set selected bits to 1
+- CSRRC : Read and clear selected bits to 0
+- CSRRWI : Read and write a CSR (from immediate value)
+- CSRRSI : Read and set selected bits to 1 (using immediate mask)
 - CSRRCI : Read and clear selected bits to 0 (using immediate mask)
 
 - "Each of these instructions reads a CSR by copying its previous value into one of the general purpose registers (x1, x2, ...)."
 
 - "Often, you only want to read the register; if so, you can specify the source value as register x0. (This is a special case. The CSR is remains unchanged; it is not set to zero.)"
+
+### Basic CSRs: CYCLE, TIME, INSTRET
+
+- They are user mode registers, but also have mirrored versions (prepended with letter m, different addresses for both versions) only available to access from machine mode (the advantage of this e.g. is to be able ot reset the cycle count only by higher privilege level).
+
+- Some registers might contain a number of bit fields and these fields can have different accessibility (e.g. status register mirrored for all privilige levels will have some fields not accessible for certain privilige levels).
+
+- mtime is not actually a CSR but a memory mapped register on a real time clock which is a separate IO device.
+
+### Other CSRs:
+
+- misa : information on the machine architecture (like register width)
+
+- mvendorid : machine vendor id
+
+- marchid : machine architecture id
+
+- mhartid : machine hardware thread id
+
+- m/s/utvec: trap vector base address (address for trap handler routine)
+
+- interrupts are always first handled by machine mode and then delegated to the appropriate privilege level (determined by various bits in CSRs).
+
+- There is only a single trap handler at the base which then uses CSRs to determine what kind of exception is raised.
+
+- Last two bits of trap handler address : 00 = single trap handler, 01 = collection of trap handlers (jump table).
+
+- There is only a single trap handler for all syncrhronous exceptions but different ones for each asynchronous interrupt.
+
+- Delegation of exceptions/interrupts to lower privilige levels can be done directly through hardware (medeleg/sedeleg and mideleg/sideleg registers, bits in these registers for each exception/interrupt are used to indicate what the hardware should do).
+
+- three sources of interrupts: software, timer and external
+
+- mie : machine mode interrupt enable (contains bits for all above three sources for all three privilege modes)
+
+- mip : machine mode interrupt pending (contains bits for all above three sources for all three privilege modes)
+
+- There is a M/SIE bit (global interrupt enable) in mstatus register as well.
+
+- "More precisely, an interrupt will be taken (i.e., the trap handler will be invoked) if and only if the corresponding bit in both mie and mip registers is set to 1, and if interrupts are globally enabled."
