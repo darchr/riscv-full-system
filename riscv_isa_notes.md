@@ -149,3 +149,21 @@ Following are main CSR.. insts:
 - There is a M/SIE bit (global interrupt enable) in mstatus register as well.
 
 - "More precisely, an interrupt will be taken (i.e., the trap handler will be invoked) if and only if the corresponding bit in both mie and mip registers is set to 1, and if interrupts are globally enabled."
+
+- status register is also mirrored at all privilige levels and some of its fields might not be available in a particular privilige level.
+
+- When a trap handler is running the previous state (interrupt enable bit and execution mode) is stored (using M/S/UIE, M/SPP bits) to be able to return to that state.
+
+- RV128, RV64 also allow to execute code for smaller register size riscv (controlled through SXL and UXL bits in status register).
+
+- MPRV : this bit in status register allows OS (in machine mode) to use virtual address (more precisely addresses are translated as if the current mode is specified by MPP).
+
+- Address translation can be turned on by satp register.
+
+- m/s/uepc : program counter to return to after trap is handled.
+
+- m/s/uscratch : a scratch register that can be used by the trap handler to save back at least one general purpose register to be able to execute code to save the entire register state that existed before the trap handler started to execute.
+
+- m/s/ucause contains a code to indicate what caused a trap.
+
+
