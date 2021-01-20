@@ -118,6 +118,13 @@ interpreter /usr/bin/qemu-riscv64-static
 EOF
 ```
 
+OR (assuming that qemu-riscv64 is installed on the system)
+
+```sh
+sudo cp /usr/bin/qemu-riscv64-static /tmp/riscv64-chroot/usr/bin/
+```
+
+
 ```sh
 sudo update-binfmts --import /tmp/qemu-riscv64
 ```
@@ -171,6 +178,7 @@ EOF
 This tutorial uses u-boot as the bootloader. To generate the menu files used by u-boot in the chroot directory, run:
 
 ```sh
+apt-get install u-boot-menu
 u-boot-update
 ```
 
