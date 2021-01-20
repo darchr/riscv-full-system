@@ -20,6 +20,9 @@ Separately run gdb for riscv (which should be available in the riscv toolchain):
 summary of some useful gdb commands:
 
 `info local:` to list local variables in the current context.
+
 `ptype class/struct:` to print out the definition (`ptype /o` to print all offsets and sizes)
+
 `stepi:` step through a single instruction
+
 `step:` step through a line of code
