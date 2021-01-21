@@ -1,6 +1,6 @@
 # Summary of RISC-V ISA
 
-This document is a collection of random notes on RISC-V ISA. 
+This document is a collection of random notes on RISC-V ISA.
 
 References:
 
@@ -23,10 +23,10 @@ References:
 - PC width matches the width of general purpose registers.
 - There is no "status register" (this makes processing of interrupts easier), used for processing of branches.
 - Branch operations perform both "test" and "conditional jump".
-- The other registers available are "CSR" registers (control and status registers), used for protection and privilige system (used for interrupt processing, 
+- The other registers available are "CSR" registers (control and status registers), used for protection and privilige system (used for interrupt processing,
   thread switching and page table manipulation).
 - There can be upto 4096 CSRs, spec define only a dozen.
-- Data is not required to be alligned for load and store operations but encouraged. Alignment is required for instructions (otherwise instruction misaligned     exception). 
+- Data is not required to be alligned for load and store operations but encouraged. Alignment is required for instructions (otherwise instruction misaligned     exception).
 
 
 ## Instructions
@@ -167,3 +167,50 @@ Following are main CSR.. insts:
 - m/s/ucause contains a code to indicate what caused a trap.
 
 
+### Virtual Memory
+
+- PMAs (physical memory attributes) are defined for various physical memory regions. Core contains a sub-system "PMA checker" to check and enforce these attributes.
+
+- In RISCV virtual memory fault exceptions are different from PMA violations.
+
+- "Accesses to main memory regions are “relaxed”, which means that the exact ordering of the operations is indeterminate (unless atomic instructions are used, of course). The programmer can use atomic instructions to force particular orderings, but for normal instructions, there are no guarantees about ordering."
+
+- Physical memory protection (PMP) is optional.
+
+- PMP is implemented using machine mode CSRs, which contain information like: starting address of the memory region (being protected by PMP), size of the region in bytes,  R/W/X permissions of the region. A lock bit is also available to trigger PMP checks in machine mode as well (if needed).
+
+- Each pmp region is defined by the pmpaddrx (x=0-15) and pmpxcfg registers.
+
+- "Each pmp region must be naturally aligned given its length".
+
+- Virtual memory is handled in supervisor mode and RISCV supports different virtual memory schemes (bare, Sv32, Sv39, Sv48). Here, 32, 39 and 48 represent different number of bits in the virtual address space.
+
+- RV32 supports 2 level page tables and 34 bit physical address space, and RV64 supports 3/4 level page tables with 56 bit physical address space.
+
+- Page size is 4K regardless of the virtual memory scheme.
+
+- satp (supervisor address and translation register) is the CSR which controls address translation and contains 'MODE', 'ASID' and 'PPN' fields.
+
+- PPN contains the physical address of the root page of the page table tree.
+
+- Each entry in the TLB will be tagged with ASID.
+
+- SFENCE.VMA (Supervisor fence for virtual memory) is designed to flush TLBs. It is used to impose order on accesses to memory and updates to page tables. "This instruction can specify a specific virtual address and/or a specific address space"
+
+- A page table entry (PTE) which is 4 bytes in size contains the following fields (from MSB to LSB):
+
+  - Physical page number (22 bits)
+  - RSW: undefined, reserved for software (2 bits)
+  - D: dirty (1 bit)
+  - A: accessed (1 bit)
+  - G: global mapping (1 bit)
+  - U: user accessible (1 bit)
+  - V: valid (1 bit)
+  - XWR: executable, writeable, readable (3 bits)
+
+
+- Megapages (4 MB in size) are supported as well in which case there will be no second level page in the page table tree.
+
+- If G=1 (globally shared among all address spaces) in PTE, ASID checking is suppressed.
+
+- Sv39 and Sv48 virtual addressing schemes are natural extensions of Sv32 virtual addressing.
