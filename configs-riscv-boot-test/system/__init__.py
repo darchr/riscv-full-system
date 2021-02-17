@@ -27,4 +27,5 @@
 #
 # Authors: Jason Lowe-Power
 
-from .system import MySystem
+from .system import RiscvSystem
+

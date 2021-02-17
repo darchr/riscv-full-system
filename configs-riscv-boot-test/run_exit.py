@@ -26,7 +26,9 @@
 #
 
 """
-This script is supposed to run boot tests for RISCV targets
+This script is supposed to run boot tests for RISCV targets.
+It has been tested with classic memory system and Atomic
+and TimingSimpleCPU so far.
 """
 
 import time
@@ -38,22 +40,14 @@ from m5.objects import *
 
 from system import *
 
-supported_protocols = ["classic"] #only tested with classic memory so far
-supported_cpu_types = ['atomic'] #only able to ran with atomic cpu
-
 def parse_options():
     parser = argparse.ArgumentParser(description='Runs Linux boot test with'
                 'RISCV. Expects the disk image to call the simulator exit'
                 'event after boot.')
-    parser.add_argument("--allow_listeners", default=False,
-                        action="store_true",
-                        help="Listeners disabled by default")
-    parser.add_argument("kernel", help="Path to the bbl binary with kernel payload")
+    parser.add_argument("bbl", help='Path to the bbl (berkeley bootloader)'
+                                        'binary with kernel payload')
     parser.add_argument("disk", help="Path to the disk image to boot")
-    parser.add_argument("cpu_type", choices=supported_cpu_types,
-                        help="The type of CPU to use in the system")
-    parser.add_argument("mem_sys", choices=supported_protocols,
-                        help="Type of memory system or coherence protocol")
+    parser.add_argument("cpu_type", help="The type of CPU in the system")
     parser.add_argument("num_cpus", type=int, help="Number of CPU cores")
 
     return parser.parse_args()
@@ -63,18 +57,14 @@ if __name__ == "__m5_main__":
     args = parse_options()
 
     # create the system we are going to simulate
-    if args.mem_sys == "classic":
-        system = MySystem(args.kernel, args.disk, args.cpu_type, args.num_cpus)
-    else:
-        system = MyRubySystem(args.kernel, args.disk, args.cpu_type,
-                              args.mem_sys, args.num_cpus)
+
+    system = RiscvSystem(args.bbl, args.disk, args.cpu_type, args.num_cpus)
 
     # set up the root SimObject and start the simulation
     root = Root(full_system = True, system = system)
 
     # Required for long-running jobs
-    if not args.allow_listeners:
-        m5.disableAllListeners()
+    m5.disableAllListeners()
 
     # instantiate all of the objects we've created above
     m5.instantiate()

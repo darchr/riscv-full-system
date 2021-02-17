@@ -28,56 +28,72 @@
 import m5
 from m5.objects import *
 from m5.util import convert
-from .fs_tools import *
 from .caches import *
 
-class MySystem(System):
+'''
+This class creates a bare bones RISCV full system.
 
-    def __init__(self, kernel, disk, cpu_type, num_cpus):
-        super(MySystem, self).__init__()
+The targeted system is  based on SiFive FU540-C000.
+Reference:
+[1] https://sifive.cdn.prismic.io/sifive/b5e7a29c-
+d3c2-44ea-85fb-acc1df282e21_FU540-C000-v1p3.pdf
+'''
+
+class RiscvSystem(System):
+
+    def __init__(self, bbl, disk, cpu_type, num_cpus):
+        super(RiscvSystem, self).__init__()
 
         # Set up the clock domain and the voltage domain
         self.clk_domain = SrcClockDomain()
         self.clk_domain.clock = '3GHz'
         self.clk_domain.voltage_domain = VoltageDomain()
 
+        # DDR memory range starts from base address 0x80000000
+        # based on [1]
         self.mem_ranges = [AddrRange(start=0x80000000, size='256MB')]
 
         # Create the main memory bus
         # This connects to main memory
         self.membus = SystemXBar(width = 64) # 64-byte width
-        self.membus.badaddr_responder = BadAddr()
-        self.membus.default = Self.badaddr_responder.pio
+        #self.membus.badaddr_responder = BadAddr()
+        #self.membus.default = Self.badaddr_responder.pio
 
         # Set up the system port for functional access from the simulator
         self.system_port = self.membus.cpu_side_ports
 
-        self.initFS(self.membus, num_cpus, kernel, disk)
-
         # Create the CPUs for our system.
         self.createCPU(cpu_type, num_cpus)
 
-        # Create the cache heirarchy for the system.
+        self.workload = RiscvBareMetal()
 
+        # this is user passed berkeley boot loader binary
+        # currently the Linux payload is compiled into this
+        # as well
+        self.workload.bootloader = bbl
+
+        # HiFive platform
+        # This is based on a HiFive RISCV board and has
+        # only a limited number of devices so far i.e.
+        # PLIC, CLINT, UART, VirtIOMMIO
+        self.platform = HiFive()
+
+        # create and intialize devices currently supported for RISCV
+        self.initDevices(self.membus, disk)
+
+        # Create the cache heirarchy for the system.
         self.createCacheHierarchy()
 
-        self.createMemoryControllersDDR4()
+        # Create the memory controller
+        self.createMemoryControllerDDR3()
 
-        # Set up the interrupt controllers for the system (x86 specific)
         self.setupInterrupts()
-
-    def totalInsts(self):
-        return sum([cpu.totalInsts() for cpu in self.cpu])
 
     def createCPU(self, cpu_type, num_cpus):
         if cpu_type == "atomic":
             self.cpu = [AtomicSimpleCPU(cpu_id = i)
                               for i in range(num_cpus)]
             self.mem_mode = 'atomic'
-        elif cpu_type == "o3":
-            self.cpu = [DerivO3CPU(cpu_id = i)
-                        for i in range(num_cpus)]
-            self.mem_mode = 'timing'
         elif cpu_type == "simple":
             self.cpu = [TimingSimpleCPU(cpu_id = i)
                         for i in range(num_cpus)]
@@ -120,43 +136,26 @@ class MySystem(System):
             # create the interrupt controller CPU and connect to the membus
             cpu.createInterruptController()
 
-    def createMemoryControllersDDR4(self):
-        self._createMemoryControllers(1, DDR4_2400_8x8)
 
-    def _createMemoryControllers(self, num, cls):
+    def createMemoryControllerDDR3(self):
         self.mem_cntrls = [
-            MemCtrl(dram = cls(range = self.mem_ranges[0]),
+            MemCtrl(dram = DDR3_1600_8x8(range = self.mem_ranges[0]),
                     port = self.membus.mem_side_ports)
-            for i in range(num)
         ]
 
-    def initFS(self, membus, cpus, kernel, disk):
-
-        self.workload = RiscvBareMetal()
-        self.workload.bootloader = kernel
+    def initDevices(self, membus, disk):
 
         self.iobus = IOXBar()
         self.intrctrl = IntrControl()
-        # HiFive platform
-        self.platform = HiFive()
 
-        # CLNT
-        self.platform.clint = Clint()
-        self.platform.clint.frequency = Frequency("100MHz")
-        self.platform.clint.pio = self.membus.master
+        # Set the frequency of RTC (real time clock) used by
+        # CLINT (core level interrupt controller).
+        # This frequency is 1MHz in SiFive's U54MC.
+        # Setting it to 100MHz for faster simulation (from riscv/fs_linux.py)
+        self.platform.rtc = RiscvRTC(frequency=Frequency("100MHz"))
 
-        # PLIC
-        self.platform.plic = Plic()
-        self.platform.clint.pio_addr = 0x2000000
-        self.platform.plic.pio_addr = 0xc000000
-        self.platform.plic.n_src = 11
-        self.platform.plic.pio = self.membus.master
-
-        # UART
-        self.uart = Uart8250(pio_addr=0x10000000)
-        self.terminal = Terminal()
-        self.platform.uart_int_id = 0xa
-        self.uart.pio = self.iobus.master
+        # RTC sends the clock signal to CLINT via an interrupt pin.
+        self.platform.clint.int_pin = self.platform.rtc.int_pin
 
         # VirtIOMMIO
         image = CowDiskImage(child=RawDiskImage(read_only=True), read_only=False)
@@ -164,25 +163,32 @@ class MySystem(System):
         self.platform.disk = MmioVirtIO(
             vio=VirtIOBlock(image=image),
             interrupt_id=0x8,
-            pio_size = 4096
+            pio_size = 4096,
+            pio_addr=0x10008000
         )
-        self.platform.disk.pio_addr = 0x10008000
-        self.platform.disk.pio = self.iobus.master
 
-        # PMA
-        self.pma = PMA()
-        self.pma.uncacheable = [
-            AddrRange(0x10000000, 0x10000008),
-            AddrRange(0x10008000, 0x10009000),
-            AddrRange(0xc000000, 0xc210000),
-            AddrRange(0x2000000, 0x2010000)
+        # From riscv/fs_linux.py
+
+        uncacheable_range = [
+            *self.platform._on_chip_ranges(),
+            *self.platform._off_chip_ranges()
         ]
+        pma_checker =  PMAChecker(uncacheable=uncacheable_range)
+
+        # PMA checker can be defined at system-level (system.pma_checker)
+        # or MMU-level (system.cpu[0].mmu.pma_checker). It will be resolved
+        # by RiscvTLB's Parent.any proxy
+        for cpu in self.cpu:
+            cpu.mmu.pma_checker = pma_checker
 
         self.bridge = Bridge(delay='50ns')
         self.bridge.master = self.iobus.slave
         self.bridge.slave = self.membus.master
-        self.bridge.ranges = [
-            AddrRange(0x10000000, 0x10000080),
-            AddrRange(0x10008000, 0x10009000)
-        ]
+        self.bridge.ranges = self.platform._off_chip_ranges()
 
+        self.platform.attachOnChipIO(self.membus)
+        self.platform.attachOffChipIO(self.iobus)
+
+        # Attach the PLIC (platform level interrupt controller)
+        # to the platform
+        self.platform.attachPlic()
