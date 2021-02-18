@@ -28,7 +28,6 @@
 import m5
 from m5.objects import *
 from m5.util import convert
-from .caches import *
 
 '''
 This class creates a bare bones RISCV full system.
@@ -104,32 +103,48 @@ class RiscvSystem(System):
         for cpu in self.cpu:
             cpu.createThreads()
 
+
     def createCacheHierarchy(self):
+        class L1Cache(Cache):
+            """Simple L1 Cache with default values"""
+
+            assoc = 8
+            size = '32kB'
+            tag_latency = 1
+            data_latency = 1
+            response_latency = 1
+            mshrs = 16
+            tgts_per_mshr = 20
+            writeback_clean = True
+
+            def __init__(self):
+                super(L1Cache, self).__init__()
+
         for cpu in self.cpu:
-            # Create a memory bus, a coherent crossbar, in this case
-            cpu.l2bus = L2XBar()
+            # Create a very simple cache hierarchy
 
-            # Create an L1 instruction and data cache
-            cpu.icache = L1ICache()
-            cpu.dcache = L1DCache()
-            cpu.mmucache = MMUCache()
+            # Create an L1 instruction, data and mmu cache
+            cpu.icache = L1Cache()
+            cpu.dcache = L1Cache()
+            cpu.mmucache = L1Cache()
 
-            # Connect the instruction and data caches to the CPU
-            cpu.icache.connectCPU(cpu)
-            cpu.dcache.connectCPU(cpu)
-            cpu.mmucache.connectCPU(cpu)
 
-            # Hook the CPU ports up to the l2bus
-            cpu.icache.connectBus(cpu.l2bus)
-            cpu.dcache.connectBus(cpu.l2bus)
-            cpu.mmucache.connectBus(cpu.l2bus)
+            # Connecting icache and dcache to memory bus and cpu
+            cpu.icache.mem_side = self.membus.cpu_side_ports
+            cpu.dcache.mem_side = self.membus.cpu_side_ports
 
-            # Create an L2 cache and connect it to the l2bus
-            cpu.l2cache = L2Cache()
-            cpu.l2cache.connectCPUSideBus(cpu.l2bus)
+            cpu.icache.cpu_side = cpu.icache_port
+            cpu.dcache.cpu_side = cpu.dcache_port
 
-            # Connect the L2 cache to the L3 bus
-            cpu.l2cache.connectMemSideBus(self.membus)
+            # Need a new crossbar for mmucache
+            self.mmubus = L2XBar()
+            cpu.mmucache.cpu_side = self.mmubus.mem_side_ports
+            cpu.mmucache.mem_side = self.membus.cpu_side_ports
+
+            # Connect the itb and dtb to mmucache
+            cpu.mmu.connectWalkerPorts(
+                self.mmubus.cpu_side_ports, self.mmubus.cpu_side_ports)
+
 
     def setupInterrupts(self):
         for cpu in self.cpu:
@@ -160,6 +175,7 @@ class RiscvSystem(System):
         # VirtIOMMIO
         image = CowDiskImage(child=RawDiskImage(read_only=True), read_only=False)
         image.child.image_file = disk
+        # using reserved memory space
         self.platform.disk = MmioVirtIO(
             vio=VirtIOBlock(image=image),
             interrupt_id=0x8,
@@ -168,11 +184,12 @@ class RiscvSystem(System):
         )
 
         # From riscv/fs_linux.py
-
         uncacheable_range = [
             *self.platform._on_chip_ranges(),
             *self.platform._off_chip_ranges()
         ]
+        # PMA (physical memory attribute) checker is a hardware structure
+        # that ensures that physical addresses follow the memory permissions
         pma_checker =  PMAChecker(uncacheable=uncacheable_range)
 
         # PMA checker can be defined at system-level (system.pma_checker)
