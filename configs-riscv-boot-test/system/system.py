@@ -202,10 +202,12 @@ class RiscvSystem(System):
         self.bridge.slave = self.membus.master
         self.bridge.ranges = self.platform._off_chip_ranges()
 
-        # Connecting on chip and off chip IO to the platform
+        # Connecting on chip and off chip IO to the mem
+        # and IO bus
         self.platform.attachOnChipIO(self.membus)
         self.platform.attachOffChipIO(self.iobus)
 
         # Attach the PLIC (platform level interrupt controller)
-        # to the platform
+        # to the platform. This initializes the PLIC with
+        # interrupt sources coming from off chip devices
         self.platform.attachPlic()
