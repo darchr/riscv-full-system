@@ -55,8 +55,6 @@ class RiscvSystem(System):
         # Create the main memory bus
         # This connects to main memory
         self.membus = SystemXBar(width = 64) # 64-byte width
-        #self.membus.badaddr_responder = BadAddr()
-        #self.membus.default = Self.badaddr_responder.pio
 
         # Set up the system port for functional access from the simulator
         self.system_port = self.membus.cpu_side_ports
@@ -64,10 +62,11 @@ class RiscvSystem(System):
         # Create the CPUs for our system.
         self.createCPU(cpu_type, num_cpus)
 
+        # using RISCV bare metal as the base full system workload
         self.workload = RiscvBareMetal()
 
         # this is user passed berkeley boot loader binary
-        # currently the Linux payload is compiled into this
+        # currently the Linux kernel payload is compiled into this
         # as well
         self.workload.bootloader = bbl
 
@@ -128,7 +127,6 @@ class RiscvSystem(System):
             cpu.dcache = L1Cache()
             cpu.mmucache = L1Cache()
 
-
             # Connecting icache and dcache to memory bus and cpu
             cpu.icache.mem_side = self.membus.cpu_side_ports
             cpu.dcache.mem_side = self.membus.cpu_side_ports
@@ -137,13 +135,15 @@ class RiscvSystem(System):
             cpu.dcache.cpu_side = cpu.dcache_port
 
             # Need a new crossbar for mmucache
-            self.mmubus = L2XBar()
-            cpu.mmucache.cpu_side = self.mmubus.mem_side_ports
+
+            cpu.mmucache.mmubus = L2XBar()
+
+            cpu.mmucache.cpu_side = cpu.mmucache.mmubus.mem_side_ports
             cpu.mmucache.mem_side = self.membus.cpu_side_ports
 
             # Connect the itb and dtb to mmucache
             cpu.mmu.connectWalkerPorts(
-                self.mmubus.cpu_side_ports, self.mmubus.cpu_side_ports)
+                cpu.mmucache.mmubus.cpu_side_ports, cpu.mmucache.mmubus.cpu_side_ports)
 
 
     def setupInterrupts(self):
@@ -190,19 +190,19 @@ class RiscvSystem(System):
         ]
         # PMA (physical memory attribute) checker is a hardware structure
         # that ensures that physical addresses follow the memory permissions
-        pma_checker =  PMAChecker(uncacheable=uncacheable_range)
 
         # PMA checker can be defined at system-level (system.pma_checker)
         # or MMU-level (system.cpu[0].mmu.pma_checker). It will be resolved
         # by RiscvTLB's Parent.any proxy
-        for cpu in self.cpu:
-            cpu.mmu.pma_checker = pma_checker
+
+        self.pma_checker =  PMAChecker(uncacheable=uncacheable_range)
 
         self.bridge = Bridge(delay='50ns')
         self.bridge.master = self.iobus.slave
         self.bridge.slave = self.membus.master
         self.bridge.ranges = self.platform._off_chip_ranges()
 
+        # Connecting on chip and off chip IO to the platform
         self.platform.attachOnChipIO(self.membus)
         self.platform.attachOffChipIO(self.iobus)
 
