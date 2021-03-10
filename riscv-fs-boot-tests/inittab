@@ -1,0 +1,8 @@
+::sysinit:/etc/rcS
+
+::respawn:-/bin/sh -c "/root/exit.sh"
+
+::shutdown:/sbin/ifdown -a
+::shutdown:/bin/sync
+::shutdown:/bin/umount -a -r
+
