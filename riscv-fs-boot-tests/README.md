@@ -10,7 +10,7 @@ All components are cross compiled on an x86 host using a riscv tool chain.
 We assume the following directory structure while following the instructions in this README file:
 
 ```
-riscv-fs/
+riscv-fs-boot-tests/
   |___ gem5/                                   # gem5 source code (to be cloned here)
   |
   |___ riscv-disk                              # built disk image will go here
@@ -36,7 +36,7 @@ riscv-fs/
 
 ## RISCV Toolchain
 
-We use `RISC-V GNU Compiler Toolchain`. To build the toolchain, follow the following instructions, assuming you are in the `riscv-fs` directory.
+We use `RISC-V GNU Compiler Toolchain`. To build the toolchain, follow the following instructions, assuming you are in the `riscv-fs-boot-tests` directory.
 
 ```sh
 # install required libraries
@@ -68,7 +68,7 @@ export PATH=$PATH:/opt/riscv/bin/
 Clone the `UCanLinux source.`
 
 ```sh
-# going back to base riscv-fs directory
+# going back to base riscv-fs-boot-tests directory
 cd ../
 
 git clone https://github.com/UCanLinux/riscv64-sample
@@ -118,7 +118,7 @@ cd build
 
 apt-get install device-tree-compiler
 
-# copy the device tree file from riscv-fs
+# copy the device tree file from riscv-fs-boot-tests
 cp ../../../device.dts .
 
 ../configure --host=riscv64-unknown-linux-gnu --with-payload=../../linux/vmlinux --prefix=/opt/riscv/ --with-dts=device.dts
@@ -252,10 +252,4 @@ An example use of this script is the following:
 [gem5 binary] -re configs/run_exit.py [path to bbl] [path to the disk image] atomic 4
 ```
 
-To interact with the simulated system's console:
-
-```sh
-telnet localhost 3457 (this port number comes from `simerr` file)
-```
-
-The default linux system based on this README, has both `login` and `password` set as `root`.
+This should boot linux on gem5 and then terminate the simulation.
