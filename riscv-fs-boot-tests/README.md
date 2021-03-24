@@ -5,7 +5,8 @@ The boot loader `bbl` is compiled with a Linux kernel and a device tree as well.
 
 The used disk image is based on [busybox](https://busybox.net/) and [UCanLinux](https://github.com/UCanLinux/). It is built using the instructions, mostly from [here](https://github.com/UCanLinux/riscv64-sample).
 
-All components are cross compiled on an x86 host using a riscv tool chain.
+**Note:** All components are cross compiled on an x86 host using a riscv tool chain. We used `88b004d4c2a7d4e4f08b17ee32d2` commit of the riscv tool chain source while building the source (riscv gcc version 10.2.0).
+
 
 We assume the following directory structure while following the instructions in this README file:
 
@@ -36,7 +37,7 @@ riscv-fs-boot-tests/
 
 ## RISCV Toolchain
 
-We use `RISC-V GNU Compiler Toolchain`. To build the toolchain, follow the following instructions, assuming you are in the `riscv-fs-boot-tests` directory.
+We use `RISC-V GNU Compiler Toolchain`. To build the toolchain, follow the following instructions, assuming you are in the `riscv-fs-boot-tests` directory (**note:** the instructions in this document are tested with `88b004d4c2a7d4e4f08b17ee32d2` commit id of the toolchain source).
 
 ```sh
 # install required libraries
@@ -180,9 +181,9 @@ mkdir if-down.d  if-post-down.d  if-pre-up.d  if-up.d
 # build m5 util for riscv and move
 # it to the root file system as well
 cd ../../../
-cd gem5/util/m5
+cd gem5/
 scons -C util/m5 build/riscv/out/m5
-cp build/riscv/out/m5 ../../../RootFS/sbin/
+cp util/m5/build/riscv/out/m5 ../RootFS/sbin/
 ```
 
 copy a modified inittab to bypass the user login prompt, and a script to exit the simulation once linux is booted:
