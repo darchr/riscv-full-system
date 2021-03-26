@@ -189,8 +189,8 @@ cp util/m5/build/riscv/out/m5 ../RootFS/sbin/
 copy a modified inittab to bypass the user login prompt, and a script to exit the simulation once linux is booted:
 
 ```sh
-cp ../../../../inittab ../../../RootFS/etc/inittab
-cp ../../../../exit.sh ../../../RootFS/root/exit.sh
+cp ../../inittab ../RootFS/etc/inittab
+cp ../../exit.sh ../RootFS/root/exit.sh
 ```
 
 ## Disk Image
@@ -198,7 +198,7 @@ cp ../../../../exit.sh ../../../RootFS/root/exit.sh
 Create a disk of 512MB size.
 
 ```sh
-cd ../../../
+cd ../
 dd if=/dev/zero of=riscv_disk bs=1M count=512
 ```
 
