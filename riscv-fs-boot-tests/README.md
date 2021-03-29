@@ -27,7 +27,7 @@ riscv-fs-boot-tests/
   |       |__RootFS                            # root file system for disk image
   |
   |
-  |___ configs-riscv-fs
+  |___ configs-riscv-boot-test
   |      |___ system                           # gem5 system config files
   |      |___ run_riscv.py                     # gem5 run script
   |
@@ -190,6 +190,9 @@ copy a modified inittab to bypass the user login prompt, and a script to exit th
 
 ```sh
 cp ../../inittab ../RootFS/etc/inittab
+
+# before copying exit.sh, make it an executable
+chmod +x ../../exit.sh
 cp ../../exit.sh ../RootFS/root/exit.sh
 ```
 
@@ -236,8 +239,8 @@ mount -o loop riscv_disk [some mount directory]
 
 ## gem5 Run Scripts
 
-gem5 scripts which can configure a riscv full system and run simulation are available in configs-riscv-fs/.
-The main script `run_riscv.py` expects following arguments:
+gem5 scripts which can configure a riscv full system and run simulation are available in configs-riscv-boot-test/.
+The main script `run_exit.py` expects following arguments:
 
 **bbl:** path to the bbl (berkeley bootloader) binary with kernel payload.
 
@@ -250,7 +253,7 @@ The main script `run_riscv.py` expects following arguments:
 An example use of this script is the following:
 
 ```sh
-[gem5 binary] -re configs/run_exit.py [path to bbl] [path to the disk image] atomic 4
+[gem5 binary] -re configs-riscv-boot-test/run_exit.py [path to bbl] [path to the disk image] atomic 4
 ```
 
 This should boot linux on gem5 and then terminate the simulation.
