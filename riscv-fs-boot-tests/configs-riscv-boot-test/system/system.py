@@ -28,6 +28,7 @@
 import m5
 from m5.objects import *
 from m5.util import convert
+from os import path
 
 '''
 This class creates a bare bones RISCV full system.
@@ -37,6 +38,43 @@ Reference:
 [1] https://sifive.cdn.prismic.io/sifive/b5e7a29c-
 d3c2-44ea-85fb-acc1df282e21_FU540-C000-v1p3.pdf
 '''
+
+# Dtb generation code from configs/example/riscv/fs_linux.py
+def generateMemNode(state, mem_range):
+    node = FdtNode("memory@%x" % int(mem_range.start))
+    node.append(FdtPropertyStrings("device_type", ["memory"]))
+    node.append(FdtPropertyWords("reg",
+        state.addrCells(mem_range.start) +
+        state.sizeCells(mem_range.size()) ))
+    return node
+
+def generateDtb(system):
+    """
+    Autogenerate DTB. Arguments are the folder where the DTB
+    will be stored, and the name of the DTB file.
+    """
+    state = FdtState(addr_cells=2, size_cells=2, cpu_cells=1)
+    root = FdtNode('/')
+    root.append(state.addrCellsProperty())
+    root.append(state.sizeCellsProperty())
+    root.appendCompatible(["riscv-virtio"])
+
+    for mem_range in system.mem_ranges:
+        root.append(generateMemNode(state, mem_range))
+
+    sections = [*system.cpu, system.platform]
+
+    for section in sections:
+        for node in section.generateDeviceTree(state):
+            if node.get_name() == root.get_name():
+                root.merge(node)
+            else:
+                root.append(node)
+
+    fdt = Fdt()
+    fdt.add_rootnode(root)
+    fdt.writeDtsFile(path.join(m5.options.outdir, 'device.dts'))
+    fdt.writeDtbFile(path.join(m5.options.outdir, 'device.dtb'))
 
 class RiscvSystem(System):
 
@@ -62,14 +100,6 @@ class RiscvSystem(System):
         # Create the CPUs for our system.
         self.createCPU(cpu_type, num_cpus)
 
-        # using RISCV bare metal as the base full system workload
-        self.workload = RiscvBareMetal()
-
-        # this is user passed berkeley boot loader binary
-        # currently the Linux kernel payload is compiled into this
-        # as well
-        self.workload.bootloader = bbl
-
         # HiFive platform
         # This is based on a HiFive RISCV board and has
         # only a limited number of devices so far i.e.
@@ -86,6 +116,28 @@ class RiscvSystem(System):
         self.createMemoryControllerDDR3()
 
         self.setupInterrupts()
+
+        # using RiscvLinux as the base full system workload
+        self.workload = RiscvLinux()
+
+        # this is user passed berkeley boot loader binary
+        # currently the Linux kernel payload is compiled into this
+        # as well
+        self.workload.object_file = bbl
+
+        # Generate DTB (from configs/example/riscv/fs_linux.py)
+        generateDtb(self)
+        self.workload.dtb_filename = path.join(m5.options.outdir, 'device.dtb')
+        # Default DTB address if bbl is bulit with --with-dts option
+        self.workload.dtb_addr = 0x87e00000
+
+        # Linux boot command flags
+        kernel_cmd = [
+            "console=ttyS0",
+            "root=/dev/vda",
+            "ro"
+        ]
+        self.workload.command_line = " ".join(kernel_cmd)
 
     def createCPU(self, cpu_type, num_cpus):
         if cpu_type == "atomic":
@@ -195,11 +247,12 @@ class RiscvSystem(System):
         # or MMU-level (system.cpu[0].mmu.pma_checker). It will be resolved
         # by RiscvTLB's Parent.any proxy
 
-        self.pma_checker =  PMAChecker(uncacheable=uncacheable_range)
+        for cpu in self.cpu:
+            cpu.mmu.pma_checker =  PMAChecker(uncacheable=uncacheable_range)
 
         self.bridge = Bridge(delay='50ns')
-        self.bridge.master = self.iobus.slave
-        self.bridge.slave = self.membus.master
+        self.bridge.mem_side_port = self.iobus.cpu_side_ports
+        self.bridge.cpu_side_port = self.membus.mem_side_ports
         self.bridge.ranges = self.platform._off_chip_ranges()
 
         # Connecting on chip and off chip IO to the mem
