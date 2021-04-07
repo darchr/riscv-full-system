@@ -144,7 +144,7 @@ git clone git://busybox.net/busybox.git
 cd busybox
 git checkout 1_30_stable  # checkout the latest stable branch
 make menuconfig
-cp ../sample/busybox.config .config  # optional
+cp ../riscv64-sample/busybox.config .config  # optional
 make menuconfig
 make CROSS_COMPILE=riscv64-unknown-linux-gnu- all -j$(nproc)
 make CROSS_COMPILE=riscv64-unknown-linux-gnu- install
@@ -156,7 +156,7 @@ Next, we will be setting up a root file system:
 
 ```sh
 # going back to riscv64-sample directory
-cd ../..
+cd ../
 
 mkdir RootFS
 cd RootFS
@@ -180,20 +180,20 @@ mkdir if-down.d  if-post-down.d  if-pre-up.d  if-up.d
 
 # build m5 util for riscv and move
 # it to the root file system as well
-cd ../../../
+cd ../../../..
 cd gem5/
 scons -C util/m5 build/riscv/out/m5
-cp util/m5/build/riscv/out/m5 ../RootFS/sbin/
+cp util/m5/build/riscv/out/m5 ../riscv64-sample/RootFS/sbin/
 ```
 
 copy a modified inittab to bypass the user login prompt, and a script to exit the simulation once linux is booted:
 
 ```sh
-cp ../../inittab ../RootFS/etc/inittab
+cp ../inittab ../riscv64-sample/RootFS/etc/inittab
 
 # before copying exit.sh, make it an executable
 chmod +x ../../exit.sh
-cp ../../exit.sh ../RootFS/root/exit.sh
+cp ../exit.sh ../riscv64-sample/RootFS/root/exit.sh
 ```
 
 ## Disk Image
@@ -239,6 +239,12 @@ mount -o loop riscv_disk [some mount directory]
 
 ## gem5 Run Scripts
 
+If not already compiled, compile gem5 for riscv:
+
+```sh
+scons build/RISCV/gem5.opt -j$(nproc)
+```
+
 gem5 scripts which can configure a riscv full system and run simulation are available in configs-riscv-boot-test/.
 The main script `run_exit.py` expects following arguments:
 
@@ -254,6 +260,12 @@ An example use of this script is the following:
 
 ```sh
 [gem5 binary] -re configs-riscv-boot-test/run_exit.py [path to bbl] [path to the disk image] atomic 4
+```
+
+A sample command:
+
+```sh
+ gem5/build/RISCV/gem5.opt -re configs-riscv-boot-test/run_exit.py riscv64-sample/riscv-pk/build/bbl riscv_disk atomic 4
 ```
 
 This should boot linux on gem5 and then terminate the simulation.
