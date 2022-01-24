@@ -26,7 +26,7 @@
 #
 
 """
-This script is supposed to run full system benchmarks with RISCV
+This script is supposed to run keystone benchmarks
 """
 
 import time
@@ -48,7 +48,8 @@ def parse_options():
     parser.add_argument("cpu_type", help="The type of CPU in the system")
     parser.add_argument("num_cpus", type=int, help="Number of CPU cores")
     parser.add_argument("bench", help="Benchmark to simulate")
-
+    # pass array_size = 0 for non-memory benchmarks
+    parser.add_argument("array_size", type=int, help="Array entries (each 64B) for mem benchmarks")
     return parser.parse_args()
 
 def writeBenchScript(dir, bench):
@@ -61,7 +62,10 @@ def writeBenchScript(dir, bench):
     bench_file = open(file_name,"w+")
     bench_file.write('cd /root/ \n')
     bench_file.write('/sbin/m5 exit \n')
-    bench_file.write('microbenchmarks/{} 10000 \n'.format(args.bench))
+    if args.array_size == 0:
+        bench_file.write('microbenchmarks/{} 10000 \n'.format(args.bench))
+    else:
+        bench_file.write('microbenchmarks/{} 10000 {} \n'.format(args.bench, args.array_size))
     bench_file.write('/sbin/m5 exit \n')
     bench_file.close()
     return file_name

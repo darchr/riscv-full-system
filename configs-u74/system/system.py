@@ -31,6 +31,8 @@ from m5.util import convert
 from os import path
 
 '''
+This class creates a bare bones RISCV full system.
+
 The targeted system is  based on SiFive FU540-C000.
 Reference:
 [1] https://sifive.cdn.prismic.io/sifive/b5e7a29c-
@@ -124,7 +126,7 @@ class U74CPU(MinorCPU):
     # inst fetch unit delivers
     # upto 8 bytes of instructions
     # per clock cycle
-    fetch1LineWidth = 8
+    #fetch1LineWidth = 8
     #fetch1ToFetch2ForwardDelay =
     #fetch1ToFetch2BackwardDelay =
     # manual does not seem to show any
